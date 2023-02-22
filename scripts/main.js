@@ -7,6 +7,8 @@ import { fileURLToPath } from "url";
 
 dotenv.config();
 
+// Look at PlainClientAPI type for hints
+
 // With scoped space and environment
 const scopedPlainClient = contentful.createClient(
   {
@@ -36,7 +38,7 @@ const singleEntry = await scopedPlainClient.entry.get({
   entryId: "19",
 });
 
-console.log(singleEntry);
+// console.log(singleEntry);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename); // /Users/someuser/contentful-import/scripts
@@ -44,7 +46,7 @@ const csvPath = path.join(__dirname, "../data/sample-faq.csv");
 
 const parser = new Parser({ delimiter: ",", columns: true });
 const readStream = fs.createReadStream(csvPath).pipe(parser);
-
+rowToEntry("nothing");
 // for await (const chunk of readStream) {
 //   // console.log(chunk);
 //   const entry = await rowToEntry(chunk);
@@ -53,15 +55,18 @@ const readStream = fs.createReadStream(csvPath).pipe(parser);
 // }
 
 async function rowToEntry(row) {
-  scopedPlainClient.environment.createEntry("faq", {
-    fields: {
-      id: { "en-US": 999999 },
-      answer: {
-        "en-US": "This is an answer",
+  scopedPlainClient.entry.create(
+    { contentTypeId: "faq" },
+    {
+      fields: {
+        id: { "en-US": 999999 },
+        answer: {
+          "en-US": "This is an answer",
+        },
+        question: {
+          "en-US": "This is a question",
+        },
       },
-      question: {
-        "en-US": "This is a question",
-      },
-    },
-  });
+    }
+  );
 }
