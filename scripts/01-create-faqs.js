@@ -47,9 +47,8 @@ const readableStream = fs.createReadStream(csvPath).pipe(parser);
 
 for await (const chunk of readableStream) {
   // console.log(chunk);
-  const entry = await rowToEntry(chunk);
-  console.log(entry);
-  // entry.publish();
+  const entry = await rowToEntry_FAQ(chunk);
+  entry.publish();
 }
 
 function extractUrl(html) {
@@ -69,6 +68,11 @@ function formatDate(string) {
 
 function wrapInLocaleObj(value) {
   return { "en-US": value };
+}
+
+// Returns a promise that resolves after _seconds_
+function delay(seconds) {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
 }
 
 async function rowToEntry_FAQ({
