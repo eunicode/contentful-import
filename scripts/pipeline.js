@@ -37,11 +37,11 @@ const scopedPlainClient = contentful.createClient(
 
 // console.log(entries.items);
 
-// const singleEntry = await scopedPlainClient.entry.get({
-//   entryId: "19",
-// });
+const singleEntry = await scopedPlainClient.entry.get({
+  entryId: "5jPdhXqQpHPGPsxAdV55Is",
+});
 
-// console.log(singleEntry);
+console.log(singleEntry);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,6 +58,7 @@ const parser = parse({
   delimiter: ",",
   columns: true,
   relax_quotes: true,
+  to: 1,
 });
 
 // const readableStream = fs

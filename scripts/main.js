@@ -6,6 +6,8 @@ import { parse } from "csv-parse";
 import path from "path";
 import { fileURLToPath } from "url";
 import { pipeline } from "stream";
+import { parseISO } from "date-fns";
+import moment from "moment";
 
 dotenv.config();
 
@@ -37,20 +39,21 @@ const csvPath = path.join(__dirname, "../data/report-230222-1677111566139.csv");
 const parser = parse({
   delimiter: ",",
   columns: true,
-  relax_quotes: true,
+  to: 1,
 });
 
 // Convert CSV to JSON
 const readableStream = fs.createReadStream(csvPath).pipe(parser);
 
 for await (const chunk of readableStream) {
+  // console.log(chunk);
   const entry = await rowToEntry(chunk);
   console.log(entry);
   // entry.publish();
 }
 
 function extractUrl(html) {
-  let url = html.replaceAll(/<[^>]*>/, "");
+  let url = html.replaceAll(/<[^>]*>/g, "");
   if (url.startsWith("https://www.expertise.com/")) {
     return url;
   } else {
@@ -58,7 +61,17 @@ function extractUrl(html) {
   }
 }
 
-async function rowToEntry({
+function formatDate(string) {
+  // Contenful format: { 'en-US': '2023-02-23T00:00-08:00' }
+  // SF format: 2/12/2023 10:16 PM // What timezone?
+  return moment(string, "M-D-YYYY LT").format();
+}
+
+function wrapInLocaleObj(value) {
+  return { "en-US": value };
+}
+
+async function rowToEntry_FAQ({
   "Snippet ID": id,
   "Directory URL": url,
   "Standard Vertical Q1": Q1v,
@@ -77,22 +90,32 @@ async function rowToEntry({
   "Answer  5 - Content": A5c,
   "Last Modified DT": lastMod,
 }) {
-  console.log(A2v);
+  const FAQs = [
+    { q: Q1v, a: A1v, type: "vertical", num: 1 },
+    { q: Q2v, a: A2v, type: "vertical", num: 2 },
+    { q: Q1c, a: A1c, type: "content", num: 1 },
+    { q: Q2c, a: A2c, type: "content", num: 2 },
+    { q: Q3c, a: A3c, type: "content", num: 3 },
+    { q: Q4c, a: A4c, type: "content", num: 4 },
+    { q: Q5c, a: A5c, type: "content", num: 5 },
+  ];
 
-  // scopedPlainClient.entry.create(
-  //   { contentTypeId: "faq" },
-  //   {
-  //     fields: {
-  //       id: { "en-US": 999999 },
-  //       answer: {
-  //         "en-US": "This is an answer",
-  //       },
-  //       question: {
-  //         "en-US": "This is a question",
-  //       },
-  //     },
-  //   }
-  // );
+  for (const { q, a, type, num } of FAQs) {
+    const generatedId = `${id}_${type}_${num}`;
+
+    scopedPlainClient.entry.create(
+      { contentTypeId: "faq" },
+      {
+        fields: {
+          question: wrapInLocaleObj(q),
+          answer: wrapInLocaleObj(a),
+          directoryUrl: wrapInLocaleObj(extractUrl(url)),
+          idBasedOnSf: wrapInLocaleObj(generatedId),
+          last_modified: wrapInLocaleObj(formatDate(lastMod)),
+        },
+      }
+    );
+  }
 }
 
 /* 
