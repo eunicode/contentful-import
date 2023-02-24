@@ -1,39 +1,19 @@
-import * as dotenv from "dotenv"; // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-import contentful from "contentful-management";
 import fs from "fs";
-// import { parse as Parser } from "csv-parse";
 import { parse } from "csv-parse";
 import path from "path";
 import { fileURLToPath } from "url";
-import { pipeline } from "stream";
-import { parseISO } from "date-fns";
-import moment from "moment";
 
-dotenv.config();
-
-// With scoped space and environment
-const scopedPlainClient = contentful.createClient(
-  {
-    // This is the access token for this space. Can get the token in the Contentful web app
-    accessToken: process.env.PERSONAL_TOKEN,
-  },
-  {
-    type: "plain",
-    defaults: {
-      spaceId: process.env.SPACE_ID,
-      environmentId: process.env.ENVIRONMENT_ID,
-    },
-  }
-);
-
-// If you use Node.js version 16.12.0 or more recent, you can use top-level await
+import cmaClient from "../helpers/client.js";
+import {
+  extractUrl,
+  formatDate,
+  wrapInLocaleObj,
+  delay,
+} from "../helpers/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename); // returns /Users/someuser/contentful-import/scripts
-
-// ARGUMENT: CHANGE FILE PATH
 const csvPath = path.join(__dirname, "../data/report-230222-1677111566139.csv");
-// const csvPath = path.join(__dirname, "../data/sample-faq.csv");
 
 // Initialize the csv parser
 const parser = parse({
@@ -42,37 +22,13 @@ const parser = parse({
   to: 1,
 });
 
-// Convert CSV to JSON
+// Convert CSV to JSON stream
 const readableStream = fs.createReadStream(csvPath).pipe(parser);
 
+// With Node 16.12.0+ you can use top-level await
 for await (const chunk of readableStream) {
   // console.log(chunk);
-  const entry = await rowToEntry_FAQ(chunk);
-  entry.publish();
-}
-
-function extractUrl(html) {
-  let url = html.replaceAll(/<[^>]*>/g, "");
-  if (url.startsWith("https://www.expertise.com/")) {
-    return url;
-  } else {
-    console.log("Error extracting url");
-  }
-}
-
-function formatDate(string) {
-  // Contenful format: { 'en-US': '2023-02-23T00:00-08:00' }
-  // SF format: 2/12/2023 10:16 PM // What timezone?
-  return moment(string, "M-D-YYYY LT").format();
-}
-
-function wrapInLocaleObj(value) {
-  return { "en-US": value };
-}
-
-// Returns a promise that resolves after _seconds_
-function delay(seconds) {
-  return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+  await rowToEntry_FAQ(chunk);
 }
 
 async function rowToEntry_FAQ({
@@ -107,7 +63,11 @@ async function rowToEntry_FAQ({
   for (const { q, a, type, num } of FAQs) {
     const generatedId = `${id}_${type}_${num}`;
 
-    scopedPlainClient.entry.create(
+    await delay(0.3); // rate limit
+
+    cmaClient.environment;
+
+    let entry = await cmaClient.environment.create(
       { contentTypeId: "faq" },
       {
         fields: {
@@ -119,9 +79,13 @@ async function rowToEntry_FAQ({
         },
       }
     );
+
+    await cmaClient.entry.publish({ entryId: entry.sys.id });
   }
 }
 
 /* 
+https://stackoverflow.com/questions/68989337/how-to-use-contentful-management-to-add-an-asset-to-an-entry-in-one-api-call
 
+https://stackoverflow.com/questions/70115821/contentful-create-and-publish-in-single-request
 */
