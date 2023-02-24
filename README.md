@@ -23,6 +23,12 @@ SPACE_ID="<organization space>"
 ENVIRONMENT_ID="<your test environment>"
 ```
 
+Run a CMA script
+
+```
+node scripts/example.js
+```
+
 ## Documentation
 
 The types are good source of documentation.
