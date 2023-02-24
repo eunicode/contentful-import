@@ -2,7 +2,8 @@
   "dependencies": {
     "contentful-management": "^10.30.0",
     "csv-parse": "^5.3.5",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "moment": "^2.29.4"
   },
   "type": "module",
   "main": "index.js"
