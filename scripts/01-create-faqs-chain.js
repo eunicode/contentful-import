@@ -55,35 +55,8 @@ async function rowToFAQ({
         },
       }
     );
+
     // console.log(entry); // sys: {id, version, etc}
-    await cmaClient.entry.publish({ entryId: entry.sys.id }, entry);
+    await cmaClient.entry.publish({ entryId: entry.sys.id });
   }
 }
-
-/* 
-https://stackoverflow.com/questions/68989337/how-to-use-contentful-management-to-add-an-asset-to-an-entry-in-one-api-call
-
-https://stackoverflow.com/questions/70115821/contentful-create-and-publish-in-single-request
-
-'X-Contentful-Version': rawData.sys.version
-                                      ^
-TypeError: Cannot read properties of undefined (reading 'sys')
-    at publish
-
-
-https://contentful.github.io/contentful-management.js/contentful-management/5.11.3/create-environment-api.js.html#line308
-
-updateEnvironment()
-raw = this.toPlainObject()
-
-Update w/ plain API
-https://github.com/contentful/contentful-management.js/issues/1461
-
-since you are using the PlainClient api, you need to pass the version (which is the current entry version you want to update) propert
-
-https://github.com/contentful/contentful-management.js/blob/9655c6ebca0918cf6a0db512059840483da524bd/lib/adapters/REST/endpoints/entry.ts#L48
-
-Update fail
-https://github.com/contentful/contentful-management.js/issues/213
-no version header 
-*/

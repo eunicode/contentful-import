@@ -25,6 +25,8 @@ ENVIRONMENT_ID="<your test environment>"
 
 ## Documentation
 
+The types are good source of documentation.
+
 Getting started docs:
 https://github.com/contentful/contentful-management.js/
 

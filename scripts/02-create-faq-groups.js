@@ -1,38 +1,43 @@
 import cmaClient from "../helpers/client.js";
+import {
+  extractUrl,
+  formatDate,
+  wrapInLocaleObj,
+  delay,
+} from "../helpers/helpers.js";
+import workPerCsvRow from "../helpers/csv-parse.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename); // returns /Users/someuser/contentful-import/scripts
-const csvPath = path.join(__dirname, "../data/report-230222-1677111566139.csv");
+workPerCsvRow("../data/report-230222-1677111566139.csv", rowToFAQGroup);
 
-// Initialize the csv parser
-const parser = parse({
-  delimiter: ",",
-  columns: true,
-  to: 1,
-});
+async function rowToFAQGroup({ "Directory URL": url }) {
+  const FAQs = [
+    { q: Q1v, a: A1v, type: "vertical", num: 1 },
+    { q: Q2v, a: A2v, type: "vertical", num: 2 },
+    { q: Q1c, a: A1c, type: "content", num: 1 },
+    { q: Q2c, a: A2c, type: "content", num: 2 },
+    { q: Q3c, a: A3c, type: "content", num: 3 },
+    { q: Q4c, a: A4c, type: "content", num: 4 },
+    { q: Q5c, a: A5c, type: "content", num: 5 },
+  ];
 
-// Convert CSV to JSON stream
-const readableStream = fs.createReadStream(csvPath).pipe(parser);
+  for (const { q, a, type, num } of FAQs) {
+    const generatedId = `${id}_${type}_${num}`;
 
-// With Node 16.12.0+ you can use top-level await
-for await (const chunk of readableStream) {
-  const entry = await rowToEntry_Group(chunk);
-  // entry.publish();
-}
+    await delay(0.3); // rate limit
 
-async function rowToEntry_Group({ "Directory URL": url }) {
-  await delay(0.5); // rate limit
+    let entry = await cmaClient.entry.create(
+      { contentTypeId: "faq" },
+      {
+        fields: {
+          question: wrapInLocaleObj(q),
+          answer: wrapInLocaleObj(a),
+          directoryUrl: wrapInLocaleObj(extractUrl(url)),
+          idBasedOnSf: wrapInLocaleObj(generatedId),
+          last_modified: wrapInLocaleObj(formatDate(lastMod)),
+        },
+      }
+    );
 
-  cmaClient.entry.create(
-    { contentTypeId: "faq" },
-    {
-      fields: {
-        question: wrapInLocaleObj(q),
-        answer: wrapInLocaleObj(a),
-        directoryUrl: wrapInLocaleObj(extractUrl(url)),
-        idBasedOnSf: wrapInLocaleObj(generatedId),
-        last_modified: wrapInLocaleObj(formatDate(lastMod)),
-      },
-    }
-  );
+    await cmaClient.entry.publish({ entryId: entry.sys.id }, entry);
+  }
 }
