@@ -43,7 +43,7 @@ async function rowToFAQ({
 
     await delay(0.3); // rate limit
 
-    let entry = await cmaClient.entry.create(
+    let currEntry = await cmaClient.entry.create(
       { contentTypeId: "faq" },
       {
         fields: {
@@ -56,7 +56,7 @@ async function rowToFAQ({
       }
     );
     // console.log(entry); // sys: {id, version, etc}
-    await cmaClient.entry.publish({ entryId: entry.sys.id }, entry);
+    await cmaClient.entry.publish({ entryId: currEntry.sys.id }, currEntry);
   }
 }
 
