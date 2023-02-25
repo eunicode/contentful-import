@@ -15,16 +15,16 @@ const faqGroupList = await cmaClient.entry.getMany({
   },
 });
 
-// for (const faqGroup of faqGroupList.items) {
-//   urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], faqGroup.sys.id);
-// }
+for (const faqGroup of faqGroupList.items) {
+  urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], faqGroup.sys.id);
+}
 
 // let faqs = faqSearch("faq", 10);
 
 let x = await cmaClient.entry.get({ entryId: "6j4puCWxawaaDmoTPABDgE" });
 console.log(x.sys.version);
 
-await cmaClient.entry.update(
+let y = await cmaClient.entry.update(
   { entryId: "6j4puCWxawaaDmoTPABDgE" },
   {
     sys: x.sys,
@@ -44,6 +44,8 @@ await cmaClient.entry.update(
     },
   }
 );
+
+await cmaClient.entry.publish({ entryId: "6j4puCWxawaaDmoTPABDgE" }, y);
 
 // for await (const faq of faqs) {
 //   if (!faq.fields.directoryUrl) {
