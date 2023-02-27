@@ -6,6 +6,7 @@ workPerCsvRow("../data/report-230222-1677111566139.csv", rowToFAQGroup);
 
 async function rowToFAQGroup({ "Directory URL": url }) {
   await delay(0.3);
+
   let entry = await cmaClient.entry.create(
     { contentTypeId: "faqDirectoryGroup" },
     {

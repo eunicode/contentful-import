@@ -2,79 +2,71 @@ import cmaClient from "../helpers/client.js";
 import { extractUrl, wrapInLocaleObj, delay } from "../helpers/helpers.js";
 import workPerCsvRow from "../helpers/csv-parse.js";
 
-// getMany()
-// {
-//   items: [{fields: {question: {}, answer: {}, directoryUrl: {'en-US': string}}}]
-// }
+// Create a map to map directory URL to faqDirectoryGroup entry id
+const createFaqGroupMap = async () => {
+  const urlGroupIdMap = new Map();
 
-const urlGroupIdMap = new Map();
-
-const faqGroupList = await cmaClient.entry.getMany({
-  query: {
-    content_type: "faqDirectoryGroup",
-  },
-});
-
-for (const faqGroup of faqGroupList.items) {
-  urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], faqGroup.sys.id);
-}
-
-// let faqs = faqSearch("faq", 10);
-
-let x = await cmaClient.entry.get({ entryId: "6j4puCWxawaaDmoTPABDgE" });
-console.log(x.sys.version);
-
-let y = await cmaClient.entry.update(
-  { entryId: "6j4puCWxawaaDmoTPABDgE" },
-  {
-    sys: x.sys,
-    fields: {
-      ...x.fields,
-      relatedFaQs: {
-        "en-US": [
-          {
-            sys: {
-              type: "Link",
-              linkType: "Entry",
-              id: "3KZuM3kxFZ7u9Luxq6f7oP",
-            },
-          },
-        ],
-      },
+  // Todo: create and use pagination generator
+  const faqGroupList = await cmaClient.entry.getMany({
+    query: {
+      content_type: "faqDirectoryGroup",
     },
+  });
+
+  for (const faqGroup of faqGroupList.items) {
+    urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], {
+      id: faqGroup.sys.id,
+      version: faqGroup.sys.version,
+    });
   }
-);
 
-await cmaClient.entry.publish({ entryId: "6j4puCWxawaaDmoTPABDgE" }, y);
+  return urlGroupIdMap;
+};
 
-// for await (const faq of faqs) {
-//   if (!faq.fields.directoryUrl) {
-//     break;
-//   }
+const urlGroupIdMap = await createFaqGroupMap();
 
-//   let faqUrl = faq.fields.directoryUrl["en-US"];
+const iterateFaqs = async () => {
+  // let relatedFaqsTemp = [];
+  // let relatedFaqsCount = 0;
 
-//   console.log(urlGroupIdMap.get(faqUrl)); // 6j
-//   console.log(faq.sys.id); //3K
-//   await cmaClient.entry.update(
-//     { entryId: urlGroupIdMap.get(faqUrl) },
-//     {
-//       fields: {
-//         relatedFaQs: {
-//           "en-US": [
-//             {
-//               sys: {
-//                 type: "Link",
-//                 linkType: "Entry",
-//                 id: faq.sys.id,
-//               },
-//             },
-//           ],
-//         },
-//       },
-//     }
-//   );
-// }
+  let faqs = faqSearch("faq", 10);
+
+  for await (const faq of faqs) {
+    // console.log(faq);
+    if (!faq.fields.directoryUrl) {
+      break;
+    }
+
+    let faqUrl = faq.fields.directoryUrl["en-US"];
+    let faqGroupId = urlGroupIdMap.get(faqUrl).id;
+    let faqGroupVersion = urlGroupIdMap.get(faqUrl).version;
+    // let faqGroupSys = (await cmaClient.entry.get({ entryId: faqGroupId })).sys;
+
+    await cmaClient.entry.update(
+      { entryId: faqGroupId },
+      {
+        sys: {
+          version: faqGroupVersion,
+        },
+        fields: {
+          relatedFaQs: {
+            "en-US": [
+              {
+                sys: {
+                  type: "Link",
+                  linkType: "Entry",
+                  id: faq.sys.id,
+                },
+              },
+            ],
+          },
+        },
+      }
+    );
+  }
+};
+
+iterateFaqs();
 
 function faqSearch(type, size) {
   function faqSearchPagination(type, cursor) {
@@ -84,21 +76,28 @@ function faqSearch(type, size) {
         limit: size,
         order: "-sys.createdAt",
         content_type: type,
-        // fields.directoryUrl: 'https://www.expertise.com/ca/hayward/motorcycle-accident-lawyer'
+        "fields.directoryUrl":
+          "https://www.expertise.com/ca/hayward/motorcycle-accident-lawyer",
       },
     });
   }
-  // Generator
+  // Iterable object
   return {
+    // Iterator function, returns iterator object
     [Symbol.asyncIterator]: async function* () {
       let cursor = 0;
 
       while (cursor < 50) {
         // while (true) {
         await delay(0.3);
+
         const dataSlice = await faqSearchPagination(type, cursor);
-        for (const item of dataSlice.items) {
-          yield item;
+
+        for (const [idx, item] of dataSlice.items.entries()) {
+          if (idx === 0) {
+            yield item;
+          }
+          // yield item;
         }
 
         cursor = cursor + size;
@@ -107,22 +106,56 @@ function faqSearch(type, size) {
   };
 }
 
-async function linkFAQsToGroup({ "Directory URL": url }) {
-  //
+// let x = await cmaClient.entry.get({ entryId: "6j4puCWxawaaDmoTPABDgE" });
+// console.log(x.sys.version);
 
-  await delay(0.3);
-  let entry = await cmaClient.entry.create(
-    { contentTypeId: "faqDirectoryGroup" },
-    {
-      fields: {
-        directoryUrl: wrapInLocaleObj(extractUrl(url)),
-      },
-    }
-  );
+// let y = await cmaClient.entry.update(
+//   { entryId: "6j4puCWxawaaDmoTPABDgE" },
+//   {
+//     sys: x.sys,
+//     fields: {
+//       ...x.fields,
+//       relatedFaQs: {
+//         "en-US": [
+//           {
+//             sys: {
+//               type: "Link",
+//               linkType: "Entry",
+//               id: "3KZuM3kxFZ7u9Luxq6f7oP",
+//             },
+//           },
+//         ],
+//       },
+//     },
+//   }
+// );
 
-  await cmaClient.entry.publish({ entryId: entry.sys.id }, entry);
-}
+// await cmaClient.entry.publish({ entryId: "6j4puCWxawaaDmoTPABDgE" }, y);
 
 /* 
- 'X-Contentful-Version': (_rawData$sys$version = rawData.sys.version) !== null && _rawData$sys$version !== void 0 ? _rawData$sys$version : 0
-*/
+'X-Contentful-Version': (_rawData$sys$version = rawData.sys.version) !== null && _rawData$sys$version !== void 0 ? _rawData$sys$version : 0
+
+https://github.com/contentful/contentful-management.js/issues/1461
+
+  since you are using the PlainClient api, you need to pass the version (which is the current entry version you want to update) property as well when you are calling this function.
+
+ filter getMany() 
+ https://github.com/contentful/contentful-management.js/issues/1690
+
+ 'fields.name': 'Universal Studios'
+
+ getMany()
+ {
+   items: [{fields: {question: {}, answer: {}, directoryUrl: {'en-US': string}}}]
+}
+
+Newest first
+ order: "-sys.createdAt",
+
+ https://www.contentful.com/developers/docs/references/content-management-api/#/introduction/api-rate-limits
+ By default the Contentful Management API enforces rate limits of 7 requests per second. 
+ Higher rate limits may apply depending on your current plan.
+
+https://www.contentful.com/developers/docs/references/content-management-api/#/introduction/updating-and-version-locking
+When updating an existing resource, you need to specify its current version 
+ */
