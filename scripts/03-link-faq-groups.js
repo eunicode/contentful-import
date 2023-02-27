@@ -1,31 +1,13 @@
 import cmaClient from "../helpers/client.js";
 import { extractUrl, wrapInLocaleObj, delay } from "../helpers/helpers.js";
 import workPerCsvRow from "../helpers/csv-parse.js";
-
-// Create a map to map directory URL to faqDirectoryGroup entry id
-const createFaqGroupMap = async () => {
-  const urlGroupIdMap = new Map();
-
-  // Todo: create and use pagination generator
-  const faqGroupList = await cmaClient.entry.getMany({
-    query: {
-      content_type: "faqDirectoryGroup",
-    },
-  });
-
-  for (const faqGroup of faqGroupList.items) {
-    urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], {
-      id: faqGroup.sys.id,
-      version: faqGroup.sys.version,
-    });
-  }
-
-  return urlGroupIdMap;
-};
+import { DELAY_DURATION } from "../helpers/constants.js";
 
 const urlGroupIdMap = await createFaqGroupMap();
 
-const iterateFaqs = async () => {
+iterateFaqs();
+
+async function iterateFaqs() {
   // let relatedFaqsTemp = [];
   // let relatedFaqsCount = 0;
 
@@ -39,18 +21,24 @@ const iterateFaqs = async () => {
 
     let faqUrl = faq.fields.directoryUrl["en-US"];
     let faqGroupId = urlGroupIdMap.get(faqUrl).id;
-    let faqGroupVersion = urlGroupIdMap.get(faqUrl).version;
+    let faqGroup = await cmaClient.entry.get({ entryId: faqGroupId });
+
+    // let faqUrl = faq.fields.directoryUrl["en-US"];
+    // let faqGroupId = urlGroupIdMap.get(faqUrl).id;
+    // let faqGroupVersion = urlGroupIdMap.get(faqUrl).version;
     // let faqGroupSys = (await cmaClient.entry.get({ entryId: faqGroupId })).sys;
+
+    await delay(DELAY_DURATION);
 
     await cmaClient.entry.update(
       { entryId: faqGroupId },
       {
-        sys: {
-          version: faqGroupVersion,
-        },
+        sys: faqGroup.sys,
         fields: {
+          ...faqGroup.fields,
           relatedFaQs: {
             "en-US": [
+              ...faqGroup.fields.relatedFaQs,
               {
                 sys: {
                   type: "Link",
@@ -64,9 +52,7 @@ const iterateFaqs = async () => {
       }
     );
   }
-};
-
-iterateFaqs();
+}
 
 function faqSearch(type, size) {
   function faqSearchPagination(type, cursor) {
@@ -89,8 +75,6 @@ function faqSearch(type, size) {
 
       while (cursor < 50) {
         // while (true) {
-        await delay(0.3);
-
         const dataSlice = await faqSearchPagination(type, cursor);
 
         for (const [idx, item] of dataSlice.items.entries()) {
@@ -104,6 +88,27 @@ function faqSearch(type, size) {
       }
     },
   };
+}
+
+// Create a map to map directory URL to faqDirectoryGroup entry id
+async function createFaqGroupMap() {
+  const urlGroupIdMap = new Map();
+
+  // Todo: create and use pagination generator
+  const faqGroupList = await cmaClient.entry.getMany({
+    query: {
+      content_type: "faqDirectoryGroup",
+    },
+  });
+
+  for (const faqGroup of faqGroupList.items) {
+    urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], {
+      id: faqGroup.sys.id,
+      version: faqGroup.sys.version,
+    });
+  }
+
+  return urlGroupIdMap;
 }
 
 // let x = await cmaClient.entry.get({ entryId: "6j4puCWxawaaDmoTPABDgE" });
@@ -158,4 +163,14 @@ Newest first
 
 https://www.contentful.com/developers/docs/references/content-management-api/#/introduction/updating-and-version-locking
 When updating an existing resource, you need to specify its current version 
+
+Technical limits
+https://www.contentful.com/developers/docs/technical-limits/#free-plan
+
+Free: 
+1 req = 144 ms  
+
+Basic:
+1 req = 100 ms
+
  */

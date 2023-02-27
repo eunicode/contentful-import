@@ -5,7 +5,10 @@ import {
   wrapInLocaleObj,
   delay,
 } from "../helpers/helpers.js";
+import { DELAY_DURATION } from "../helpers/constants";
+
 import workPerCsvRow from "../helpers/csv-parse.js";
+import { wrap } from "contentful-management/dist/typings/plain/wrappers/wrap.js";
 
 workPerCsvRow("../data/report-230222-1677111566139.csv", rowToFAQ);
 
@@ -41,7 +44,9 @@ async function rowToFAQ({
   for (const { q, a, type, num } of FAQs) {
     const generatedId = `${id}_${type}_${num}`;
 
-    await delay(0.3); // rate limit
+    // TODO: check if entry exists
+
+    await delay(DELAY_DURATION); // rate limit
 
     let currEntry = await cmaClient.entry.create(
       { contentTypeId: "faq" },
@@ -52,6 +57,7 @@ async function rowToFAQ({
           directoryUrl: wrapInLocaleObj(extractUrl(url)),
           idBasedOnSf: wrapInLocaleObj(generatedId),
           last_modified: wrapInLocaleObj(formatDate(lastMod)),
+          type: wrapInLocaleObj("directory"),
         },
       }
     );
@@ -86,4 +92,9 @@ https://github.com/contentful/contentful-management.js/blob/9655c6ebca0918cf6a0d
 Update fail
 https://github.com/contentful/contentful-management.js/issues/213
 no version header 
+
+VERSION
+Update = entry version bump
+Every time you make an edit, the version gets bumped
+Publish = entry version bump
 */
