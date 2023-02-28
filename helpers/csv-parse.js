@@ -15,7 +15,7 @@ const createCsvStream = (filepath) => {
   const parser = parse({
     delimiter: ",",
     columns: true,
-    to: 1,
+    // to: 1,
   });
 
   const csvPath = createFilePath(filepath);

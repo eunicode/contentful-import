@@ -1,56 +1,49 @@
 import cmaClient from "../helpers/client.js";
-import { extractUrl, wrapInLocaleObj, delay } from "../helpers/helpers.js";
-import workPerCsvRow from "../helpers/csv-parse.js";
+import { delay } from "../helpers/helpers.js";
 import { DELAY_DURATION } from "../helpers/constants.js";
-
-const urlGroupIdMap = await createFaqGroupMap();
 
 iterateFaqs();
 
 async function iterateFaqs() {
-  // let relatedFaqsTemp = [];
-  // let relatedFaqsCount = 0;
-
-  let faqs = faqSearch("faq", 10);
+  let faqs = faqSearch("faq", 500);
+  const urlGroupIdMap = await createFaqGroupMap();
 
   for await (const faq of faqs) {
-    // console.log(faq);
     if (!faq.fields.directoryUrl) {
       break;
     }
 
     let faqUrl = faq.fields.directoryUrl["en-US"];
-    let faqGroupId = urlGroupIdMap.get(faqUrl).id;
-    let faqGroup = await cmaClient.entry.get({ entryId: faqGroupId });
 
-    // let faqUrl = faq.fields.directoryUrl["en-US"];
-    // let faqGroupId = urlGroupIdMap.get(faqUrl).id;
-    // let faqGroupVersion = urlGroupIdMap.get(faqUrl).version;
-    // let faqGroupSys = (await cmaClient.entry.get({ entryId: faqGroupId })).sys;
+    try {
+      let faqGroupId = urlGroupIdMap.get(faqUrl);
 
-    await delay(DELAY_DURATION);
+      let faqGroup = await cmaClient.entry.get({ entryId: faqGroupId });
+      // Create unique faqs list
+      let faqLinks = linksAccumulator(faqGroup, faq);
 
-    await cmaClient.entry.update(
-      { entryId: faqGroupId },
-      {
-        sys: faqGroup.sys,
-        fields: {
-          ...faqGroup.fields,
-          relatedFaQs: {
-            "en-US": [
-              ...faqGroup.fields.relatedFaQs,
-              {
-                sys: {
-                  type: "Link",
-                  linkType: "Entry",
-                  id: faq.sys.id,
-                },
-              },
-            ],
+      await delay(DELAY_DURATION);
+
+      let updatedEntry = await cmaClient.entry.update(
+        { entryId: faqGroupId },
+        {
+          sys: faqGroup.sys,
+          fields: {
+            ...faqGroup.fields,
+            relatedFaQs: {
+              "en-US": faqLinks,
+            },
           },
-        },
-      }
-    );
+        }
+      );
+
+      await cmaClient.entry.publish({ entryId: faqGroupId }, updatedEntry);
+    } catch (error) {
+      console.log(error);
+      console.log("id: ", faq.sys.id);
+      console.log("url: ", faqUrl);
+      return;
+    }
   }
 }
 
@@ -62,8 +55,7 @@ function faqSearch(type, size) {
         limit: size,
         order: "-sys.createdAt",
         content_type: type,
-        "fields.directoryUrl":
-          "https://www.expertise.com/ca/hayward/motorcycle-accident-lawyer",
+        "fields.type": "directory",
       },
     });
   }
@@ -73,15 +65,11 @@ function faqSearch(type, size) {
     [Symbol.asyncIterator]: async function* () {
       let cursor = 0;
 
-      while (cursor < 50) {
-        // while (true) {
+      while (true) {
         const dataSlice = await faqSearchPagination(type, cursor);
 
         for (const [idx, item] of dataSlice.items.entries()) {
-          if (idx === 0) {
-            yield item;
-          }
-          // yield item;
+          yield item;
         }
 
         cursor = cursor + size;
@@ -98,19 +86,46 @@ async function createFaqGroupMap() {
   const faqGroupList = await cmaClient.entry.getMany({
     query: {
       content_type: "faqDirectoryGroup",
+      limit: 950, // update if number of faqGroups increases
     },
   });
 
   for (const faqGroup of faqGroupList.items) {
-    urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], {
-      id: faqGroup.sys.id,
-      version: faqGroup.sys.version,
-    });
+    urlGroupIdMap.set(faqGroup.fields.directoryUrl["en-US"], faqGroup.sys.id);
   }
 
   return urlGroupIdMap;
 }
 
+/**
+ * Accumulate list of unique faqs
+ */
+function linksAccumulator(faqGroup, newFaq) {
+  // Default value in case there are no links
+  const faqGroupLinks = faqGroup.fields.relatedFaQs?.["en-US"]
+    ? faqGroup.fields.relatedFaQs["en-US"]
+    : [];
+
+  const seen = new Set();
+
+  for (const link of faqGroupLinks) {
+    if (!seen.has(link.sys.id)) {
+      seen.add(link.sys.id);
+    }
+  }
+
+  if (!seen.has(newFaq.sys.id)) {
+    faqGroupLinks.push({
+      sys: {
+        type: "Link",
+        linkType: "Entry",
+        id: newFaq.sys.id,
+      },
+    });
+  }
+
+  return faqGroupLinks;
+}
 // let x = await cmaClient.entry.get({ entryId: "6j4puCWxawaaDmoTPABDgE" });
 // console.log(x.sys.version);
 
@@ -173,4 +188,9 @@ Free:
 Basic:
 1 req = 100 ms
 
+Collection pagination
+https://www.contentful.com/developers/docs/references/content-management-api/#/reference/scheduled-actions/get-a-scheduled-action
+
+default page size 100
+max 1000
  */

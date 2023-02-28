@@ -5,10 +5,9 @@ import {
   wrapInLocaleObj,
   delay,
 } from "../helpers/helpers.js";
-import { DELAY_DURATION } from "../helpers/constants";
+import { DELAY_DURATION } from "../helpers/constants.js";
 
 import workPerCsvRow from "../helpers/csv-parse.js";
-import { wrap } from "contentful-management/dist/typings/plain/wrappers/wrap.js";
 
 workPerCsvRow("../data/report-230222-1677111566139.csv", rowToFAQ);
 
@@ -44,8 +43,6 @@ async function rowToFAQ({
   for (const { q, a, type, num } of FAQs) {
     const generatedId = `${id}_${type}_${num}`;
 
-    // TODO: check if entry exists
-
     await delay(DELAY_DURATION); // rate limit
 
     let currEntry = await cmaClient.entry.create(
@@ -61,7 +58,7 @@ async function rowToFAQ({
         },
       }
     );
-    // console.log(entry); // sys: {id, version, etc}
+
     await cmaClient.entry.publish({ entryId: currEntry.sys.id }, currEntry);
   }
 }
